@@ -67,6 +67,10 @@ void	Server::waitingClients()
 			parseClient(this->_clients[_nbClient]);
 			this->_nbClient++;
 		}
+		for (unsigned int i = 0; i < this->_nbClient; i++)
+		{
+			std::cout << "Client " << i << " : " << this->_clients[i]->getNick() << std::endl;
+		}
 	}
 }
 
@@ -75,32 +79,41 @@ void	Server::closeServer()
 	close(this->_socket);
 }
 
-std::string recData(Client *client) {
-	char buffer[1024];
-	std::memset(buffer, 0, sizeof(buffer));
+std::string Server::recData(Client *client) {
+    char buffer[1024];
+    ssize_t bytes = 0;
 
-	ssize_t bytes = recv(client->getSocket(), buffer, sizeof(buffer) - 1, 0);
-	if (bytes == -1)
-	{
-		std::cerr << "Error: fail to receive data" << std::endl;
-		return "";
-	} else if (byte == 0)
-	{
-		std!!cout << "Client disconnected" << std::endl;
-		return "";
-	}
-	return std::string(buffer);
-	
+    while (true) {
+        std::memset(buffer, 0, sizeof(buffer));
+        bytes = recv(client->getSocket(), buffer, sizeof(buffer) - 1, 0);
+        if (bytes == -1) {
+            std::cerr << "Error: fail to receive data" << std::endl;
+            continue;
+        } else if (bytes == 0) {
+            std::cout << "Client disconnected" << std::endl;
+            return "";
+        }
+        if (bytes > 0) {
+            buffer[bytes] = '\0';
+            break;
+        }
+    }
+    return std::string(buffer);
 }
 
-void	parseClient(Client *client) {
+
+void	Server::parseClient(Client *client) {
 	std::string data = recData(client);
+	std::cout << data << std::endl;
 	if (data.empty())
 		return;
-	if (data.compare(0, 5, "NICK") == 0) {
+	if (data.compare(0, 4, "NICK") == 0) {
         client->setNick(data.substr(5));
     }
-	else if (data.compare(0, 5, "USER") == 0) {
+	data = recData(client);
+	if (data.empty())
+		return;
+	if (data.compare(0, 4, "USER") == 0) {
         client->setUser(data.substr(5));
     }
 }

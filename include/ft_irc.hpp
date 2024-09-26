@@ -18,6 +18,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <cstring>
+#include <string>   
 
 class	Client
 {
@@ -28,6 +30,8 @@ class	Client
 			~Client();
 
 			int		getSocket() const;
+			std::string	getNick() const;
+			std::string	getName() const;
 			void	setNick(std::string nick);
 			void	setUser(std::string user);
 

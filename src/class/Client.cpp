@@ -41,7 +41,19 @@ int Client::getSocket() const {
 	return this->_socket;
 }
 
-void	setNick(std::string nick) : _nick(nick) {}
+std::string	Client::getNick() const {
+	return this->_nick;
+}
 
-void	setUser(std::string user) : _user(user) {}
+std::string	Client::getName() const {
+	return this->_name;
+}
+
+void	Client::setNick(std::string nick) {
+	this->_nick = nick;
+}
+
+void	Client::setUser(std::string user) {
+	this->_user = user;
+}
 
