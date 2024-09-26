@@ -10,7 +10,7 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../../include/ft_irc.hpp"
+#include "ft_irc.hpp"
 
 Server::Server(char **argv) : _nbClient(0), _port(std::atoi(argv[1])), _password(argv[2]), _socket(0) , structSize(sizeof(this->_sockstruct))
 {

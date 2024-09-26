@@ -44,6 +44,21 @@ class	Client
 			std::string _user;
 };
 
+
+class	Channel
+{
+	public:
+			Channel(char **argv);
+			~Channel();
+
+	private:
+			std::string	_name;
+			std::string	_password;
+			std::string	_topic;
+			
+
+};
+
 class	Server
 {
 	public:
@@ -60,6 +75,8 @@ class	Server
 
 	private:
 			Client*				_clients[1024];
+			Channel*			_channels[1024];
+
 			unsigned int		_nbClient;
 			unsigned int		_port;
 			std::string			_password;

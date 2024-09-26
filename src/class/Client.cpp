@@ -10,7 +10,7 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../../include/ft_irc.hpp"
+#include "ft_irc.hpp"
 
 Client::Client() : _socket(0), _name("default"), _op(false)
 {
