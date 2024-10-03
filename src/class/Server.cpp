@@ -10,111 +10,193 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "ft_irc.hpp"
+#include "../../include/Server.hpp"
 
-Server::Server(char **argv) : _nbClient(0), _port(std::atoi(argv[1])), _password(argv[2]), _socket(0) , structSize(sizeof(this->_sockstruct))
+Server::Server(char **argv)
 {
-
+	this->_port = std::atoi(argv[1]);
+	this->_password = argv[2];
+	this->_nbClient = 1;
+	this->_nbClientMax = 5;
+	this->_pfds = new struct pollfd[this->_nbClientMax + 1];
+	this->_socket = getSocket();
+	this->_pfds[0].fd = this->_socket;
+	this->_pfds[0].events = POLLIN;
 }
 
 Server::~Server()
 {
-
-}
-
-void	Server::startServer()
-{
-	int	opt = 1;
-
-	if ((this->_socket = socket(AF_INET, SOCK_STREAM, 0)) == 0)
-	{
-		std::cout << "Error: fail to create socket" << std::endl;
-		return;
-	}
-	if (setsockopt(this->_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
-	{
-		std::cout << "Error: fail to attach socket" << std::endl;
-		return;
-	}
-	this->_sockstruct.sin_family = AF_INET;
-	this->_sockstruct.sin_addr.s_addr = INADDR_ANY;
-	this->_sockstruct.sin_port = htons(this->_port);
-	if (bind(this->_socket, (struct sockaddr *)&this->_sockstruct, sizeof(this->_sockstruct)) < 0)
-	{
-		std::cout << "Error: fail to connect" << std::endl;
-		return;
-	}
-	if (listen(this->_socket, 5) < 0)
-	{
-		std::cout << "Error: fail to listen" << std::endl;
-		return;
-	}
-	std::cout << "Serveur en attente de connexions sur le port " << this->_port << "..." << std::endl;
-}
-
-void	Server::waitingClients()
-{
-	int socket;
-
-	while (1)
-	{
-		if ((socket = accept(this->_socket, (struct sockaddr *)&this->_sockstruct, (socklen_t*)&this->structSize)) < 0)
-			std::cout << "Error: fail to accept new client" << std::endl;
-		else
-		{
-			std::cout << "[Server] new client has been add" << std::endl;
-			this->_clients[_nbClient] = new Client(socket);
-			parseClient(this->_clients[_nbClient]);
-			this->_nbClient++;
-		}
-		for (unsigned int i = 0; i < this->_nbClient; i++)
-		{
-			std::cout << "Client " << i << " : " << this->_clients[i]->getNick() << std::endl;
-		}
-	}
-}
-
-void	Server::closeServer()
-{
 	close(this->_socket);
 }
 
-std::string Server::recData(Client *client) {
-    char buffer[1024];
-    ssize_t bytes = 0;
+int	Server::getSocket()
+{
+	struct sockaddr_in	sockstruct;
+	int	sock, opt = 1;
 
-    while (true) {
-        std::memset(buffer, 0, sizeof(buffer));
-        bytes = recv(client->getSocket(), buffer, sizeof(buffer) - 1, 0);
-        if (bytes == -1) {
-            std::cerr << "Error: fail to receive data" << std::endl;
-            continue;
-        } else if (bytes == 0) {
-            std::cout << "Client disconnected" << std::endl;
-            return "";
-        }
-        if (bytes > 0) {
-            buffer[bytes] = '\0';
-            break;
-        }
-    }
-    return std::string(buffer);
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+	{
+		std::cout << "Error: fail to create socket" << std::endl;
+		exit(-1);
+	}
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+	{
+		std::cout << "Error: fail to attach socket" << std::endl;
+		exit(-1);
+	}
+	sockstruct.sin_family = AF_INET;
+	sockstruct.sin_addr.s_addr = INADDR_ANY;
+	sockstruct.sin_port = htons(this->_port);
+	if (bind(sock, (struct sockaddr *)&sockstruct, sizeof(sockstruct)) < 0)
+	{
+		std::cout << "Error: fail to connect" << std::endl;
+		exit(-1);
+	}
+	if (listen(sock, this->_nbClientMax) < 0)
+	{
+		std::cout << "Error: fail to listen" << std::endl;
+		exit(-1);
+	}
+	std::cout << "[Server] Waiting for connections on port " << this->_port << "..." << std::endl;
+
+	return sock;
 }
 
-
-void	Server::parseClient(Client *client) {
-	std::string data = recData(client);
-	std::cout << data << std::endl;
-	if (data.empty())
-		return;
-	if (data.compare(0, 4, "NICK") == 0) {
-        client->setNick(data.substr(5));
-    }
-	data = recData(client);
-	if (data.empty())
-		return;
-	if (data.compare(0, 4, "USER") == 0) {
-        client->setUser(data.substr(5));
-    }
+void	Server::launching()
+{
+	while (1)
+	{
+		int	poll_count = poll(this->_pfds, this->_nbClient, -1);
+		if (poll_count == -1)
+		{
+			std::cout << "Error: poll()" << std::endl;
+			exit(-1);
+		}
+		for (unsigned int i = 0; i < (this->_nbClient + 1); i++)
+		{
+			if (this->_pfds[i].revents & POLLIN)
+			{
+				if (this->_pfds[i].fd == this->_socket)
+					addClient();
+				else
+					clientRequest(i);
+			}
+		}
+	}
 }
 
+void	Server::addClient()
+{
+	struct sockaddr_storage	sockstruct;
+	int						clientFd;
+	socklen_t				structlen = sizeof(sockstruct);
+
+	if (this->_nbClient == this->_nbClientMax)
+		std::cout << "Error: can't accept new client because server is full" << std::endl;
+	else if ((clientFd = accept(this->_socket, (struct sockaddr*)&sockstruct, &structlen)) == -1)
+		std::cout << "Error: fail to accept new client" << std::endl;
+	else
+	{
+		this->_pfds[this->_nbClient].fd = clientFd;
+		this->_pfds[this->_nbClient].events = POLLIN;
+		this->_clients.insert(std::pair<int, Client *>(clientFd, new Client(clientFd)));
+		std::cout << "[Server] New client has been add" << std::endl;
+		sendMessage(this->_pfds[this->_nbClient].fd, ":* 667 * :Bonjour\n");
+		sendMessage(this->_pfds[this->_nbClient].fd, "Bonjour\n");
+		this->_nbClient++;
+	}
+}
+
+void	Server::clientRequest(unsigned int idClient)
+{
+	std::string	msg, line;
+	int			clientFd = this->_pfds[idClient].fd;
+	char		buffer[1024] = {0};
+	int			bytes_received, end, lines = 0;
+
+	if ((bytes_received = recv(clientFd, buffer, sizeof(buffer), 0)) > 0)
+	{
+		buffer[bytes_received] = '\0';
+		msg = buffer;
+		for (int i = 0; i != bytes_received; i++)
+			if (msg[i] == '\n')
+				lines++;
+		while (lines)
+		{
+			end = msg.find('\n');
+			line = msg.substr(0, end);
+			this->parseCommand(clientFd, line);
+			msg = msg.substr(end + 1, msg.size() - (end + 1));
+			lines--;
+		}
+	}
+}
+
+void	Server::parseCommand(int clientFd, std::string line)
+{
+	std::string	commands[16] = {"PASS", "NICK", "USER", "OPER", "MODE", "QUIT", "JOIN", "PART", "TOPIC", "KICK", "PRIVMSG", "NOTICE", "SENDFILE", "GETFILE", "BOT", "CAP"};
+	std::string	command, arg;
+	int			i = -1;
+	int			space;
+
+	space = line.find(' ');
+	command = line.substr(0, space);
+	arg = line.substr(space + 1, line.size() - (space + 1));
+	while (++i < 17)
+		if (command == commands[i])
+			break ;
+	switch (i)
+	{
+	case 0:
+			this->pass(arg, clientFd);
+			break;
+	case 1:
+			this->nick(arg, clientFd);
+			break;
+	case 2:
+			this->user(arg, clientFd);
+			break;
+	case 3:
+			this->oper(arg, clientFd);
+			break;
+	case 4:
+			this->mode(arg, clientFd);
+			break;
+	case 5:
+			this->quit(arg, clientFd);
+			break;
+	case 6:
+			this->join(arg, clientFd);
+			break;
+	case 7:
+			this->part(arg, clientFd);
+			break;
+	case 8:
+			this->topic(arg, clientFd);
+			break;
+	case 9:
+			this->kick(arg, clientFd);
+			break;
+	case 10:
+			this->privmsg(arg, clientFd);
+			break;
+	case 11:
+			this->notice(arg, clientFd);
+			break;
+	case 12:
+			this->sendfile(arg, clientFd);
+			break;
+	case 13:
+			this->getfile(arg, clientFd);
+			break;
+	case 14:
+			this->bot(arg, clientFd);
+			break;
+	case 15:
+			this->cap(clientFd);
+			break;
+	default:
+			sendMessage(clientFd, "No channel joined. Try /join #<channel>\n");
+			break;
+	}
+}

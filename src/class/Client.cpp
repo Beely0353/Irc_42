@@ -10,23 +10,14 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "ft_irc.hpp"
+#include "../../include/Client.hpp"
 
-Client::Client() : _socket(0), _name("default"), _op(false)
+Client::Client(int socket)
 {
-
-}
-
-Client::Client(int socket) : _socket(socket), _name("default"), _op(false)
-{
-
-}
-
-Client& Client::operator=(const Client& other)
-{
-	if (other._socket)
-		this->_socket = other._socket;
-	return *this;
+	this->_socket = socket;
+	this->_nickname = "";
+	this->_username = "";
+	this->_hexchat = false;
 }
 
 Client::~Client()
@@ -34,26 +25,52 @@ Client::~Client()
 
 }
 
+void	Client::setNickname(const std::string nick)
+{
+	this->_nickname = nick;
+}
 
-/**************************************************************************************************/
+void	Client::setUsername(const std::string user)
+{
+	this->_username = user;
+}
 
-int Client::getSocket() const {
+void	Client::setAuthenticated(bool b)
+{
+	this->_authenticated = b;
+}
+
+void	Client::setHexchat(bool b)
+{
+	this->_hexchat = b;
+}
+
+void	Client::setNickname(const std::string nick)
+{
+	this->_nickname = nick;
+}
+
+void	Client::setUsername(const std::string user)
+{
+	this->_username = user;
+}
+
+std::string	Client::getNickname()
+{
+	return this->_nickname;
+}
+
+std::string	Client::getUsername()
+{
+	return this->_username;
+}
+
+int	Client::getSocket()
+{
 	return this->_socket;
 }
 
-std::string	Client::getNick() const {
-	return this->_nick;
+bool	Client::getHexchat()
+{
+	return this->_hexchat;
 }
-
-std::string	Client::getName() const {
-	return this->_name;
-}
-
-void	Client::setNick(std::string nick) {
-	this->_nick = nick;
-}
-
-void	Client::setUser(std::string user) {
-	this->_user = user;
-}
-
