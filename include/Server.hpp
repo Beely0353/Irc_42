@@ -14,6 +14,7 @@
 # define SERVER_HPP
 
 # include <iostream>
+# include <string>
 # include <algorithm>
 # include <sys/socket.h>
 # include <unistd.h>
@@ -46,17 +47,25 @@ class	Server
 			void		nick(std::string arg, int clientFd);
 			void		user(std::string arg, int clientFd);
 			void		oper(std::string arg, int clientFd);
-			void		mode(std::string arg, int clientFd, std::string chanName)
-			void		PrivateChannel(std::string arg, std::string chanName);
+
+			void		mode(std::string arg, int clientFd);
+			void		modeOp(Client *client, Channel *channel, std::string mode, std::vector<std::string> args);
+
+			void		PrivateChannel(std::string arg, unsigned int channelFd);
 			void		quit(std::string arg, int clientFd);
 
-			void		join(std::string arg, int clientFd);
+			void		Join(std::string arg, int clientFd);
 			void		JoinPsswrd(std::string arg, int clientFd);
 			void		joinDefault(std::string arg, int clientFd);
 
 			void		part(std::string arg, int clientFd);
+			void		partDefault(std::string arg, int clientFd);
+			void		partReason(std::string arg, int clientFd);
 			void		topic(std::string arg, int clientFd);
 			void		kick(std::string arg, int clientFd);
+			void		kickDefault(std::string arg, int clientFd);
+			void		kickReason(std::string arg, int clientFd);
+			void		invite(std::string arg, int clientFd);
 			void		privmsg(std::string arg, int clientFd);
 			void		notice(std::string arg, int clientFd);
 			void		sendfile(std::string arg, int clientFd);
@@ -64,6 +73,8 @@ class	Server
 			void		bot(std::string arg, int clientFd);
 			void		cap(int clientFd);
 
+			bool		isClient(Client *client);
+			Client		*findClient(std::string nick);
 			/*void	authentication();
 			std::string	findNickname(char *buffer);
 			std::string	findUsername(char *buffer);
@@ -82,7 +93,7 @@ class	Server
 			std::map<int, Client *>	_clients;
 			int						_socket;
 			
-			std::map<string, Channel *>		_channels;
+			std::map<std::string, Channel *>		_channels;
 			unsigned int			_nbChannel;
 };
 

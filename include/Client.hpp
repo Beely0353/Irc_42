@@ -25,8 +25,6 @@ class	Client
 			void		setUsername(const std::string user);
 			void		setAuthenticated(bool b);
 			void		setHexchat(bool b);
-			void		setNickname(const std::string nick);
-			void		setUsername(const std::string user);
 			std::string	getNickname();
 			std::string	getUsername();
 			int			getSocket();

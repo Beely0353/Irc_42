@@ -132,6 +132,26 @@ void	Server::clientRequest(unsigned int idClient)
 	}
 }
 
+bool Server::isClient(Client *client)
+{
+	for (std::map<int, Client *>::iterator it = this->_clients.begin(); it != this->_clients.end(); ++it)
+	{
+		if (it->second == client)
+			return true;
+	}
+	return false;
+}
+
+Client	*Server::findClient(std::string nick)
+{
+	std::map<int, Client *>::iterator it;
+
+	for (it = this->_clients.begin(); it != this->_clients.end(); it++)
+		if (it->second->getNickname() == nick)
+			return it->second;
+	return NULL;
+}
+
 void	Server::parseCommand(int clientFd, std::string line)
 {
 	std::string	commands[16] = {"PASS", "NICK", "USER", "OPER", "MODE", "QUIT", "JOIN", "PART", "TOPIC", "KICK", "PRIVMSG", "NOTICE", "SENDFILE", "GETFILE", "BOT", "CAP"};
@@ -166,7 +186,7 @@ void	Server::parseCommand(int clientFd, std::string line)
 			this->quit(arg, clientFd);
 			break;
 	case 6:
-			this->join(arg, clientFd);
+			this->Join(arg, clientFd);
 			break;
 	case 7:
 			this->part(arg, clientFd);
