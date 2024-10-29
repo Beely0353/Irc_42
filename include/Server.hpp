@@ -13,92 +13,65 @@
 #ifndef SERVER_HPP
 # define SERVER_HPP
 
-# include <iostream>
-# include <string>
-# include <algorithm>
-# include <sys/socket.h>
-# include <unistd.h>
-# include <arpa/inet.h>
-# include <unistd.h>
-# include <fcntl.h>
-# include <poll.h>
-# include <vector>
-# include <map>
-# include <stdlib.h>
-
+# include "Utils.hpp"
 # include "Client.hpp"
 # include "Channel.hpp"
 
-class Client;
+class	Channel;
+
+class	Client;
 
 class	Server
 {
 	public:
-			Server(char **argv);
+			Server(char *hostname, int port, std::string pwd);
 			~Server();
 
-			int		getSocket();
-			void	launching();
-			void	addClient();
-			void	clientRequest(unsigned int idClient);
-			void	parseCommand(int clientFd, std::string line);
+			const std::string			&getHostname();
+			const int					&getPort();
+			const std::string			&getPassword();
+			const std::string			&getVersion();
+			const std::string			&getDate();
+			const unsigned int			&getNbClient();
+			const unsigned int			&getNbClientMax();
+			const int					&getSocket();
+			const struct sockaddr_in	&getSockstruct();
+			const int					&getPollfd(int idClient);
+			Client						*getClient(int clientFd);
+			Channel						*getChannel(std::string channel);
 
-			void		pass(std::string arg, int clientFd);
-			void		nick(std::string arg, int clientFd);
-			void		user(std::string arg, int clientFd);
-			void		oper(std::string arg, int clientFd);
+			void		createSocket();
+			void		launching();
+			void		addClient();
+			void		clientRequest(unsigned int idClient);
+			std::string	commands(std::vector<std::string> command, int clientFd);
 
-			void		mode(std::string arg, int clientFd);
-			void		modeOp(Client *client, Channel *channel, std::string mode, std::vector<std::string> args);
+			std::vector<std::string>	splitBuffer(std::string buf);
+			int							nicknameUsed(std::string nick);
+			int							usernameUsed(std::string user);
+			void						sendChannel(Channel *channel, std::string message);
 
-			void		PrivateChannel(std::string arg, unsigned int channelFd);
-			void		quit(std::string arg, int clientFd);
+			Client	*findClientServerByUsername(std::string Username);
+			Client	*findClientServerByNickname(const std::string &nickname);
 
-			void		Join(std::string arg, int clientFd);
-			void		JoinPsswrd(std::string arg, int clientFd);
-			void		joinDefault(std::string arg, int clientFd);
-
-			void		part(std::string arg, int clientFd);
-			void		partDefault(std::string arg, int clientFd);
-			void		partReason(std::string arg, int clientFd);
-			void		topic(std::string arg, int clientFd);
-			void		kick(std::string arg, int clientFd);
-			void		kickDefault(std::string arg, int clientFd);
-			void		kickReason(std::string arg, int clientFd);
-			void		invite(std::string arg, int clientFd);
-			void		privmsg(std::string arg, int clientFd);
-			void		notice(std::string arg, int clientFd);
-			void		sendfile(std::string arg, int clientFd);
-			void		getfile(std::string arg, int clientFd);
-			void		bot(std::string arg, int clientFd);
-			void		cap(int clientFd);
-
-			bool		isClient(Client *client);
-			Client		*findClient(std::string nick);
-			/*void	authentication();
-			std::string	findNickname(char *buffer);
-			std::string	findUsername(char *buffer);
-			void	setNickClient(std::string nick);
-			void	setUserClient(std::string user);
-
-			int		nicknameUsed(std::string nick);
-			int		usernameUsed(std::string user);*/
+			# include "Command.hpp"
+			# include "Message.hpp"
+			# include "ServerException.hpp"
 
 	private:
-			unsigned int			_port;
-			std::string				_password;
-			unsigned int			_nbClient;
-			unsigned int			_nbClientMax;
-			struct pollfd*			_pfds;
-			std::map<int, Client *>	_clients;
-			int						_socket;
-			
-			std::map<std::string, Channel *>		_channels;
-			unsigned int			_nbChannel;
+			std::string							_hostname;
+			int									_port;
+			std::string							_password;
+			std::string							_version;
+			std::string							_date;
+			unsigned int						_nbClient;
+			unsigned int						_nbClientMax;
+			std::vector<struct pollfd>			_pfds;
+			struct pollfd						_pfdstmp;
+			std::map<int, Client *>				_clients;
+			int									_socket;
+			struct sockaddr_in					_sockstruct;
+			std::map<std::string, Channel *>	_channels;
 };
-
-void	sendMessage(int fd, std::string msg);
-std::string trim(const std::string& str);
-std::vector<std::string> split(const std::string& str, char delimiter);
 
 #endif

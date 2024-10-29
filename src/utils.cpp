@@ -12,22 +12,15 @@
 
 #include "../include/Server.hpp"
 
-/*std::string	currentDateTime()
+std::string	getCurrentDate()
 {
-	time_t		now = time(0);
-	struct tm	timestruct;
-	char		*buffer[1024];
-	timestruct = *localtime(&now);
+	std::time_t	now = std::time(NULL);
+	std::tm*	time = std::localtime(&now);
+	char		buffer[1024];
 
-	strftime(buffer, sizeof(buffer), "%Y-%m-%d.%X", &timestruct);
+	strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", time);
 
 	return buffer;
-}*/
-
-void	sendMessage(int fd, std::string msg)
-{
-	if (send(fd, msg.c_str(), msg.size(), 0) == -1)
-		return ;
 }
 
 std::string trim(const std::string& str) {
@@ -45,14 +38,17 @@ std::string trim(const std::string& str) {
     return str.substr(start, end - start);
 }
 
-std::vector<std::string> split(const std::string& str, char delimiter) {
-    std::vector<std::string> tokens;
-    std::string token;
-    std::stringstream ss(str);
+std::vector<std::string> split(const std::string& str, char delimiter)
+{
+	std::vector<std::string>	tab;
 
-    while (std::getline(ss, token, delimiter)) {
-        tokens.push_back(trim(token));
-    }
-
-    return tokens;
+	for (unsigned int i = 0, j = 0; i <= str.size(); i++)
+	{
+		if (str[i] == delimiter || str[i] == '\0')
+		{
+			tab.push_back(str.substr(j, i - j));
+			j = i;
+		}
+	}
+    return tab;
 }

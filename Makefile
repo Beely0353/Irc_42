@@ -11,7 +11,7 @@
 # **************************************************************************** #
 
 NAME	= ircserv
-FLAG	= -Wall -Wextra -Werror -std=c++98
+FLAG	= -Wall -Wextra -Werror -std=c++98 -g3
 
 SRCDIR	= src
 OBJDIR	= obj

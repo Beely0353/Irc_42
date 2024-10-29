@@ -12,16 +12,20 @@
 
 #include "../../include/Server.hpp"
 
-Server::Server(char **argv)
+Server::Server(char *hostname, int port, std::string pwd)
 {
-	this->_port = std::atoi(argv[1]);
-	this->_password = argv[2];
+	this->_hostname = hostname;
+	this->_port = port;
+	this->_password = pwd;
+	this->_version = "ft_irc-1.0";
+	this->_date = getCurrentDate();
 	this->_nbClient = 1;
 	this->_nbClientMax = 5;
-	this->_pfds = new struct pollfd[this->_nbClientMax + 1];
-	this->_socket = getSocket();
-	this->_pfds[0].fd = this->_socket;
-	this->_pfds[0].events = POLLIN;
+	this->createSocket();
+	this->_pfdstmp.fd = this->_socket;
+	this->_pfdstmp.events = POLLIN;
+	this->_pfds.push_back(this->_pfdstmp);
+	this->launching();
 }
 
 Server::~Server()
@@ -29,65 +33,45 @@ Server::~Server()
 	close(this->_socket);
 }
 
-int	Server::getSocket()
+void	Server::createSocket()
 {
-	struct sockaddr_in	sockstruct;
-	int	sock, opt = 1;
-
-	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == 0)
-	{
-		std::cout << "Error: fail to create socket" << std::endl;
-		exit(-1);
-	}
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
-	{
-		std::cout << "Error: fail to attach socket" << std::endl;
-		exit(-1);
-	}
-	sockstruct.sin_family = AF_INET;
-	sockstruct.sin_addr.s_addr = INADDR_ANY;
-	sockstruct.sin_port = htons(this->_port);
-	if (bind(sock, (struct sockaddr *)&sockstruct, sizeof(sockstruct)) < 0)
-	{
-		std::cout << "Error: fail to connect" << std::endl;
-		exit(-1);
-	}
-	if (listen(sock, this->_nbClientMax) < 0)
-	{
-		std::cout << "Error: fail to listen" << std::endl;
-		exit(-1);
-	}
-	std::cout << "[Server] Waiting for connections on port " << this->_port << "..." << std::endl;
-
-	return sock;
+	if ((this->_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0)
+		throw (Server::SocketCreationError());
+	this->_sockstruct.sin_family = AF_INET;
+	this->_sockstruct.sin_addr.s_addr = INADDR_ANY;
+	this->_sockstruct.sin_port = htons(this->getPort());
+	if (bind(this->getSocket(), (struct sockaddr *)&this->getSockstruct(), sizeof(this->getSockstruct())) < 0)
+		throw (Server::SocketBindError());
+	if (listen(this->getSocket(), this->getNbClientMax()) < 0)
+		throw (Server::SocketListenError());
 }
 
 void	Server::launching()
 {
+	std::cout << "[Server] Waiting for connections on port " << this->getPort() << "..." << std::endl;
+
 	while (1)
 	{
-		int	poll_count = poll(this->_pfds, this->_nbClient, -1);
-		if (poll_count == -1)
+		if (poll(this->_pfds.data(), this->_pfds.size(), -1) == -1)
+			throw (Server::pollException());
+		for (unsigned int i = 0; i < this->_pfds.size(); i++)
 		{
-			std::cout << "Error: poll()" << std::endl;
-			exit(-1);
-		}
-		for (unsigned int i = 0; i < (this->_nbClient + 1); i++)
-		{
-			if (this->_pfds[i].revents & POLLIN)
-			{
-				if (this->_pfds[i].fd == this->_socket)
-					addClient();
-				else
-					clientRequest(i);
-			}
+			if (!this->_pfds[i].revents)
+				continue;
+			if (!(this->_pfds[i].revents & POLLIN))
+				continue;
+			if (this->_pfds[i].fd == this->getSocket())
+				this->addClient();
+			else
+				this->clientRequest(i);
+			break;
 		}
 	}
 }
 
 void	Server::addClient()
 {
-	struct sockaddr_storage	sockstruct;
+	struct sockaddr_in		sockstruct;
 	int						clientFd;
 	socklen_t				structlen = sizeof(sockstruct);
 
@@ -97,126 +81,111 @@ void	Server::addClient()
 		std::cout << "Error: fail to accept new client" << std::endl;
 	else
 	{
-		this->_pfds[this->_nbClient].fd = clientFd;
-		this->_pfds[this->_nbClient].events = POLLIN;
-		this->_clients.insert(std::pair<int, Client *>(clientFd, new Client(clientFd)));
+		this->_pfdstmp.fd = clientFd;
+		this->_pfds.push_back(this->_pfdstmp);
+		this->_clients.insert(std::pair<int, Client *>(clientFd, new Client(clientFd, sockstruct)));
 		std::cout << "[Server] New client has been add" << std::endl;
-		sendMessage(this->_pfds[this->_nbClient].fd, ":* 667 * :Bonjour\n");
-		sendMessage(this->_pfds[this->_nbClient].fd, "Bonjour\n");
 		this->_nbClient++;
 	}
 }
 
 void	Server::clientRequest(unsigned int idClient)
 {
-	std::string	msg, line;
-	int			clientFd = this->_pfds[idClient].fd;
-	char		buffer[1024] = {0};
-	int			bytes_received, end, lines = 0;
+	int			clientFd = this->getPollfd(idClient);
+	char		buffer[1024];
+	int			bytes_received, line = 0;
+	std::string	buf, msg;
 
-	if ((bytes_received = recv(clientFd, buffer, sizeof(buffer), 0)) > 0)
+	bytes_received = recv(clientFd, buffer, sizeof(buffer), 0);
+	if (bytes_received <= 0)
+		throw (Server::RecvError());
+	else
 	{
 		buffer[bytes_received] = '\0';
-		msg = buffer;
-		for (int i = 0; i != bytes_received; i++)
-			if (msg[i] == '\n')
-				lines++;
-		while (lines)
+		buf = buffer;
+		for (int i = 0; i < bytes_received; i++)
+			if (buf[i] == '\n')
+				line++;
+		for (int i = 0; i != line; i++)
 		{
-			end = msg.find('\n');
-			line = msg.substr(0, end);
-			this->parseCommand(clientFd, line);
-			msg = msg.substr(end + 1, msg.size() - (end + 1));
-			lines--;
+			msg = this->commands(this->splitBuffer(buf), clientFd);
+			if (msg.size())
+				send(clientFd, msg.c_str(), msg.size(), 0);
+			buf = buf.substr(buf.find('\n') + 1);
 		}
 	}
 }
 
-bool Server::isClient(Client *client)
+std::string	Server::commands(std::vector<std::string> buffer, int clientFd)
 {
-	for (std::map<int, Client *>::iterator it = this->_clients.begin(); it != this->_clients.end(); ++it)
-	{
-		if (it->second == client)
-			return true;
-	}
-	return false;
-}
-
-Client	*Server::findClient(std::string nick)
-{
-	std::map<int, Client *>::iterator it;
-
-	for (it = this->_clients.begin(); it != this->_clients.end(); it++)
-		if (it->second->getNickname() == nick)
-			return it->second;
-	return NULL;
-}
-
-void	Server::parseCommand(int clientFd, std::string line)
-{
-	std::string	commands[16] = {"PASS", "NICK", "USER", "OPER", "MODE", "QUIT", "JOIN", "PART", "TOPIC", "KICK", "PRIVMSG", "NOTICE", "SENDFILE", "GETFILE", "BOT", "CAP"};
-	std::string	command, arg;
+	std::string	commands[17] = {"JOIN", "PART", "KICK", "INVITE", "TOPIC", "MODE", "CAP", "PASS", "NICK", "USER", "OP", "DEOP", "MSG", "QUIT", "SENDFILE", "GETFILE", "BOT"};
 	int			i = -1;
-	int			space;
 
-	space = line.find(' ');
-	command = line.substr(0, space);
-	arg = line.substr(space + 1, line.size() - (space + 1));
-	while (++i < 17)
-		if (command == commands[i])
+	for (unsigned int j = 0; j < buffer.size(); j++)
+		std::cout << "buffer[" << j << "] = " << buffer[j] << std::endl;
+
+	while (++i < 18)
+		if (buffer[0] == commands[i])
 			break ;
+	std::cout << i << std::endl;
 	switch (i)
 	{
 	case 0:
-			this->pass(arg, clientFd);
-			break;
+			return this->join(buffer, this->_clients[clientFd]);
 	case 1:
-			this->nick(arg, clientFd);
-			break;
+			return this->part(buffer, this->_clients[clientFd]);
 	case 2:
-			this->user(arg, clientFd);
-			break;
+			return this->kick(buffer, this->_clients[clientFd]);
 	case 3:
-			this->oper(arg, clientFd);
-			break;
+			return this->invite(buffer, this->_clients[clientFd]);
 	case 4:
-			this->mode(arg, clientFd);
-			break;
+			return this->topic(buffer, this->_clients[clientFd]);
 	case 5:
-			this->quit(arg, clientFd);
-			break;
+			return this->mode(buffer, this->_clients[clientFd]);
 	case 6:
-			this->Join(arg, clientFd);
-			break;
+			return this->cap(this->_clients[clientFd]);
 	case 7:
-			this->part(arg, clientFd);
-			break;
+			return this->pass(buffer, this->_clients[clientFd]);
 	case 8:
-			this->topic(arg, clientFd);
-			break;
+			return this->nick(buffer, this->_clients[clientFd]);
 	case 9:
-			this->kick(arg, clientFd);
-			break;
+			return this->user(buffer, this->_clients[clientFd]);
 	case 10:
-			this->privmsg(arg, clientFd);
-			break;
+			return this->op(buffer, this->_clients[clientFd]);
 	case 11:
-			this->notice(arg, clientFd);
-			break;
+			return this->deop(buffer, this->_clients[clientFd]);
 	case 12:
-			this->sendfile(arg, clientFd);
-			break;
+			return this->msg(buffer, this->_clients[clientFd]);
 	case 13:
-			this->getfile(arg, clientFd);
-			break;
+			return this->quit(this->_clients[clientFd]);
 	case 14:
-			this->bot(arg, clientFd);
-			break;
+			return this->sendfile(buffer, this->_clients[clientFd]);
 	case 15:
-			this->cap(clientFd);
-			break;
+			return this->getfile(buffer, this->_clients[clientFd]);
+	case 16:
+			return this->bot(buffer, this->_clients[clientFd]);
 	default:
-			sendMessage(clientFd, "No channel joined. Try /join #<channel>\n");
-			break;
+			return "";
 	}
+	return "";
 }
+
+Client *Server::findClientServerByUsername(std::string Username) {
+    for (std::map<int, Client *>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
+        if (it->second->getUsername() == Username) {
+            return it->second;
+        }
+    }
+    return NULL;
+}
+
+
+Client *Server::findClientServerByNickname(const std::string &nickname) {
+    for (std::map<int, Client *>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
+        if (it->second->getNickname() == nickname) {
+            return it->second;
+        }
+    }
+    return NULL;
+}
+

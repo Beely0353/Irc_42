@@ -6,89 +6,58 @@
 /*   By: biaroun <biaroun@student.42nice.fr> >      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/30 14:14:52 by biaroun           #+#    #+#             */
-/*   Updated: 2024/10/11 13:35:26 by biaroun          ###   ########.fr       */
+/*   Updated: 2024/10/29 17:01:07 by biaroun          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../include/Channel.hpp"
 
-Channel::Channel(Client *fonda, std::string name, std::string password) : _name(name), _password(password), _private(false), _maxClients(-1), _TopicChange(false)
+Channel::Channel(Client *client, std::string name, std::string password)
 {
-    _members.insert(std::make_pair(fonda, "OP"));
+	this->_name = name;
+	this->_password = password;
+	this->_topic = "";
+	this->_i = false;
+	this->_t = false;
+	this->_k = false;
+	if (this->getPassword().size())
+		this->_k = true;
+	this->_l = false;
+	this->_maxClient = 1;
+	this-> _topicChange = false;
+	this->_date = getCurrentDate();
+    _members.insert(std::pair<std::string, bool>(client->getUsername(), true));
 }
 
 Channel::~Channel() {}
 
-
-void Channel::addMember(Client *client, std::string password)
+bool	Channel::isInvited(std::string username)
 {
-    if (_password != password)
-        return;
-    if (_maxClients != -1 &&_members.size() >= _maxClients)
-        return;
-    _members.insert(std::make_pair(client, "USER"));
+	for (unsigned int i = 0; i < this->_invited.size(); i++)
+	{
+		if (this->_invited[i] == username)
+			return true;
+	}
+	return false;
 }
 
-void Channel::removeMember(Client *client)
+void	Channel::addClient(std::string username)
 {
-
-    _members.erase(client);
+	this->_members.insert(std::pair<std::string, bool>(username, false));
 }
 
-bool Channel::isOP(Client *client)
-{
-    if (_members[client] == "OP")
-        return true;
-    return false;
-}
-
-bool Channel::isInvited(Client *client)
-{
-    if (_invited.find(client) != _invited.end())
-    {
-        _invited.erase(client);
-        return true;
-    }
-    return false;
-}
-
-bool Channel::isInviteOnly()
-{
-    if (_private)
-        return true;
-    return false;
-}
-
-bool Channel::isMember(Client *client)
+bool Channel::isMember(std::string client)
 {
     if (_members.find(client) != _members.end())
         return true;
     return false;
 }
 
-void Channel::ADDInvited(Client *client)
+bool Channel::isOP(std::string client)
 {
-    _invited.insert(client);
-}
-
-void Channel::setMaxClients(int maxClients)
-{
-    _maxClients = maxClients;
-}
-
-void Channel::setTopicChange(bool b)
-{
-    _TopicChange = b;
-}
-
-void Channel::setTopic(std::string topic)
-{
-    _topic = topic;
-}
-
-void Channel::setPassword(std::string password)
-{
-    _password = password;
+    if (_members[client] == true)
+        return true;
+    return false;
 }
 
 void Channel::setPrivate(bool priv)
@@ -96,72 +65,55 @@ void Channel::setPrivate(bool priv)
     _private = priv;
 }
 
-bool Channel::getPrivate()
+void Channel::setPassword(std::string password)
 {
-    return _private;
+	_password = password;
 }
 
-std::string Channel::getPassword()
-{
-    return _password;
+int Channel::removeMember(Client* client) {
+    std::map<std::string, bool>::iterator it = _members.find(client->getUsername());
+    
+    if (it != _members.end()) {
+        _members.erase(it);
+        return 0;
+    }
+    
+    return 1;
 }
 
-std::string Channel::getName()
+void Channel::OP(std::string client)
 {
-    return _name;
+	_members[client] = true;
 }
 
-std::string Channel::getTopic()
+void Channel::DEOP(std::string client)
 {
-    return _topic;
+	_members[client] = false;
+}
+
+void Channel::setTopicChange(bool change)
+{
+	_topicChange = change;
+}
+
+
+void Channel::addInvited(std::string client)
+{
+    _invited.push_back(client);
 }
 
 bool Channel::isTopicProtected()
 {
-    return _TopicChange;
+    return _topicChange;
 }
 
-bool Channel::isFull()
+/*Client *Channel::findClientChannel(std::string Username)
 {
-    if (_maxClients != -1 && _members.size() >= _maxClients)
-        return true;
-    return false;
-}
-
-void Channel::OP(Client *client)
-{
-    _members[client] = "OP";
-}
-
-void Channel::DEOP(Client *client)
-{
-    _members[client] = "USER";
-}
-
-void	Channel::SendMessChanAll(std::string msg, std::string chanName)
-{
-	for (std::map<Client*, std::string>::iterator it = _members.begin(); it != _members.end(); ++it) {
-        Client* client = it->first;
-		sendMessage(client->getSocket(), msg);
-	}
-}
-
-void	Channel::SendMessChan(std::string msg, std::string chanName, Client *send)
-{
-	for (std::map<Client*, std::string>::iterator it = _members.begin(); it != _members.end(); ++it) {
-        Client* client = it->first;
-		if (client == send)
-			continue;
-		sendMessage(client->getSocket(), msg);
-	}
-}
-
-Client *Channel::findClient(std::string nick)
-{
-    for (std::map<Client*, std::string>::iterator it = _members.begin(); it != _members.end(); ++it) {
-        Client* client = it->first;
-        if (client->getNickname() == nick)
-            return client;
+	std::map<std::string, bool>::iterator it = _members.find(Username);
+	
+    if (it != _members.end()) {
+        return ;
     }
-    return NULL;
-}
+    
+    return 1;
+}*/

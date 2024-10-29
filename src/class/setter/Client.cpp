@@ -5,31 +5,16 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: mgayout <mgayout@student.42nice.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/09/25 11:40:54 by mgayout           #+#    #+#             */
-/*   Updated: 2024/09/25 11:40:54 by mgayout          ###   ########.fr       */
+/*   Created: 2024/10/16 15:12:06 by mgayout           #+#    #+#             */
+/*   Updated: 2024/10/16 15:12:06 by mgayout          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../../include/Client.hpp"
+#include "../../../include/Client.hpp"
 
-Client::Client(int clientFd, struct sockaddr_in sockstruct)
-{
-	this->_socket = clientFd;
-	this->_sockstruct = sockstruct;
-	this->_nickname = "";
-	this->_username = "";
-	this->_pwd = false;
-	this->_nick = false;
-	this->_user = false;
-	this->_hexchat = false;
-}
-
-Client::~Client()
-{
-
-}
-
-void	Client::addChannel(std::string channel)
-{
-	this->_channels.push_back(channel);
-}
+void	Client::setNickname(const std::string nick) {this->_nickname = nick;}
+void	Client::setUsername(const std::string user) {this->_username = user;}
+void	Client::setPwd(bool b) {this->_pwd = b;}
+void	Client::setNick(bool b) {this->_nick = b;}
+void	Client::setUser(bool b) {this->_user = b;}
+void	Client::setHexchat(bool b) {this->_hexchat = b;}
